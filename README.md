@@ -13,8 +13,8 @@ Installation
 1. click `Code` on this GitHub page, and select `Download ZIP`
 2. unpack the downloaded ZIP file (this tool will not work if you just run things inside the ZIP file)
 3. install WSL (_you_ do not need to use WSL, but Docker does):
-   a. right-click `install-wsl.bat`
-   b. run it as `Administrator`
+   i. right-click `install-wsl.bat`
+   ii. run it as `Administrator`
 4. follow the instructions here to download and install Docker Desktop: https://docs.docker.com/desktop/install/windows-install/
 5. if your MW5 is _not_ installed in `C:\Program Files\Epic Games\MW5Mercs`, edit the `do-sync.bat` file with Notepad and change the `SET MW5_PATH` line at the top
 
