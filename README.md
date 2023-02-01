@@ -10,7 +10,7 @@ This script syncs a curated list of Mechwarrior 5 mods with the `mods` directory
 Installation
 ------------
 
-1. click `Code` on the GitHub page, and select `Download ZIP`
+1. click `Code` on this GitHub page, and select `Download ZIP`
 2. unpack the downloaded ZIP file (this tool will not work if you just run things inside the ZIP file)
 3. install WSL (you do not need to _use_ WSL, but Docker does):
    a. right-click `install-wsl.bat`
