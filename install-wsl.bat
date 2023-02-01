@@ -1,1 +1,2 @@
-wsl --install
+wsl --install --no-launch
+wsl --update
