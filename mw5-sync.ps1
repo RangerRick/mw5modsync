@@ -1,4 +1,4 @@
-# SET THIS TO YOUR Mechwarrior 5 Directory
+# SET THIS TO YOUR MECHWARRIOR 5 DIRECTORY!
 $MW5_DIR="C:\Program Files\Epic Games\MW5Mercs"
 
 $ErrorActionPreference = 'Stop'
