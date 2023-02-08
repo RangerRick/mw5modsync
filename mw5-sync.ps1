@@ -288,7 +288,9 @@ foreach ($key in $existing_mods.Keys) {
     $existing = $existing_mods[$key]
 
     if (-not $active) {
-        Write-Host "❌ Deleting removed (version $($existing.version), build $($existing.buildNumber)) mod from $($existing.internalPath)"
+        Write-Host -NoNewline "❌ Deleting removed ("
+        Write-Mod-Version $existing
+        Write-Host ") mod from $($existing.internalPath)"
         Remove-Item (Join-Path -Path $UNPACK_DIR -ChildPath $existing.internalPath) -Recurse -Force
     }
 }
