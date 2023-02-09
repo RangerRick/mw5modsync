@@ -122,7 +122,7 @@ function Get-Mod-Info-From-File {
     $json = ConvertFrom-Json -InputObject $contents
     return @{
         file = $_file.ToString()
-        internalPath = $_file.ToString().Split("/")[0]
+        internalPath = $_file.ToString().Split([IO.Path]::DirectorySeparatorChar)[0]
         displayName = $json.displayName
         version = $json.version
         buildNumber = $json.buildNumber
@@ -134,9 +134,11 @@ function Get-Mod-Info-From-Archive {
 
     $json = $null
     $modfile = $null
+    $modfilter = '*' + [IO.Path]::DirectorySeparatorChar + 'mod.json'
+
     if (is_zip($_file)) {
         $zip = [IO.Compression.ZipFile]::OpenRead($_file)
-        $modfile = $zip.Entries | Where-Object { $_.FullName -like '*/mod.json' }
+        $modfile = $zip.Entries | Where-Object { $_.Name -eq 'mod.json' }
         # Write-Host "modfile in ${_file}: ${modfile}"
         $tempFile = New-TemporaryFile
         [IO.Compression.ZipFileExtensions]::ExtractToFile($modfile, $tempFile, $true)
@@ -145,7 +147,7 @@ function Get-Mod-Info-From-Archive {
         $json = ConvertFrom-Json -InputObject $contents
         Remove-Item -Path $tempFile -Force
     } elseif (is_rar($_file)) {
-        $modfile = unrar lb "${_file}" | Where-Object {$_ -like '*/mod.json' } | Out-String
+        $modfile = unrar lb "${_file}" | Where-Object {$_ -like $modfilter } | Out-String
         if ($LASTEXITCODE -gt 0) {
             throw "failed to determine mod.json path in ${_file}"
         }
@@ -156,12 +158,12 @@ function Get-Mod-Info-From-Archive {
         }
         $json = ConvertFrom-Json -InputObject $contents
     } elseif (is_7zip($_file)) {
-        $modfile = 7z l -slt "${_file}" | Where-Object {$_ -like '*/mod.json' } | Out-String
+        $modfile = 7z l -slt "${_file}" | Where-Object {$_ -like $modfilter } | Out-String
         if ($LASTEXITCODE -gt 0) {
             throw "failed to determine mod.json path in ${_file}"
         }
         $modfile = $modfile.replace("`r`n", "").replace("`n", "").replace('Path = ', '')
-        $contents = 7z e -so "${_file}" $modfile | Out-String
+        $contents = 7z e -so "${_file}" "${modfile}" | Out-String
         if ($LASTEXITCODE -gt 0) {
             throw "failed to get contents of mod.json from ${_file}"
         }
@@ -172,7 +174,7 @@ function Get-Mod-Info-From-Archive {
 
     return @{
         file = $_file.ToString()
-        internalPath = $modfile.ToString().Split("/")[0]
+        internalPath = $modfile.ToString().Split([IO.Path]::DirectorySeparatorChar)[0]
         displayName = $json.displayName
         version = $json.version
         buildNumber = $json.buildNumber
@@ -183,7 +185,7 @@ function Expand-Mod {
     param($_mod)
 
     if (is_zip($_mod["file"])) {
-        Expand-Archive -LiteralPath $_mod["file"] -DestinationPath $UNPACK_DIR -Force
+        Expand-Archive -LiteralPath $_mod["file"] -DestinationPath "${UNPACK_DIR}" -Force
     } elseif (is_rar($_mod["file"])) {
         unrar -y x -idq $_mod["file"] -op $UNPACK_DIR
     } elseif (is_7zip($_mod["file"])) {
@@ -247,7 +249,7 @@ foreach ($existing in $existing_modfiles) {
 
     $modinfo = @{
         file = $existing
-        internalPath = $modfile.ToString().Split("/")[0]
+        internalPath = $modfile.ToString().Split([IO.Path]::DirectorySeparatorChar)[0]
         displayName = $json.displayName
         version = $json.version
         buildNumber = $json.buildNumber
