@@ -58,7 +58,9 @@ function Get-File {
 
     Write-Host -NoNewline "🌎 Downloading ${_folder}/${_filename}... "
     $escaped = [uri]::EscapeUriString($_filename)
+    $ProgressPreference = 'SilentlyContinue'
     $response = Invoke-WebRequest -Uri "${root}/${escaped}" -Method Head
+    $ProgressPreference = 'Continue'
     if (Test-Path -Path $output_file) {
         $file = Get-Item $output_file
         $content_length_string = $response.Headers.'Content-Length'
@@ -69,7 +71,9 @@ function Get-File {
         }
         Remove-Item -Force $output_file
     }
+    $ProgressPreference = 'SilentlyContinue'
     Invoke-WebRequest -Uri "${root}/${_filename}" -OutFile $output_file
+    $ProgressPreference = 'Continue'
     Write-Host "done"
 }
 
@@ -89,6 +93,7 @@ function Get-Remote-Filelist {
 
     $ret = @()
     $escaped = [uri]::EscapeUriString($_folder)
+    $ProgressPreference = 'SilentlyContinue'
     foreach ($href in (Invoke-WebRequest -Uri ("${_server_root}/${escaped}/")).Links.Href) {
         $unescaped = [uri]::UnescapeDataString($href)
         if (is_7zip($unescaped)) {
@@ -106,6 +111,7 @@ function Get-Remote-Filelist {
             Write-Warning "Get-Remote-Filelist: unknown file type: ${unescaped}"
         }
     }
+    $ProgressPreference = 'Continue'
     return ,$ret
 }
 
