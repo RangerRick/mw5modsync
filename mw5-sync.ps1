@@ -330,3 +330,6 @@ $existing_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-
     }
 }
 
+Write-Host ""
+Write-Host "Press the 'any' key to quit..."
+$null = $Host.UI.RawUI.ReadKey()
