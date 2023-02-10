@@ -1,5 +1,6 @@
 # SET THIS TO YOUR MECHWARRIOR 5 DIRECTORY!
 $MW5_DIR="C:\Program Files\Epic Games\MW5Mercs"
+$MW5_DIR="/tmp/MW5Mercs"
 
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
@@ -56,7 +57,7 @@ function Get-File {
     }
     $output_file = Join-Path -Path $output_dir -ChildPath $_filename
 
-    Write-Host -NoNewline "🌎 Downloading ${_folder}/${_filename}... "
+    Write-Host -NoNewline "* Downloading ${_folder}/${_filename}... "
     $escaped = [uri]::EscapeUriString($_filename)
     $ProgressPreference = 'SilentlyContinue'
     $response = Invoke-WebRequest -Uri "${root}/${escaped}" -Method Head
@@ -66,7 +67,7 @@ function Get-File {
         $content_length_string = $response.Headers.'Content-Length'
         $content_length = [convert]::ToInt64($content_length_string, 10)
         if ($file.Length -eq $content_length) {
-            Write-Host "already exists ✅"
+            Write-Host "already exists"
             return
         }
         Remove-Item -Force $output_file
@@ -120,10 +121,13 @@ function Get-Mod-Info-From-File {
 
     $contents = Get-Content -Path $_file.FullName -Raw
     $json = ConvertFrom-Json -InputObject $contents
+
+    $_relativeName = $_file.FullName.ToString()
+    $_relativeName = $_relativeName.replace(($UNPACK_DIR + [IO.Path]::DirectorySeparatorChar), '')
+
     return @{
         file = $_file.FullName.ToString()
-        # TODO: relative to mods/
-        internalPath = $_file.ToString().Split([IO.Path]::DirectorySeparatorChar)[0]
+        internalPath = $_relativeName.Split([IO.Path]::DirectorySeparatorChar)[0]
         displayName = $json.displayName
         version = $json.version
         buildNumber = $json.buildNumber
@@ -216,6 +220,8 @@ function Write-Mod-Version {
 
 $active_mods = @{}
 
+Write-Host "### DOWNLOADING NEW FILES ###" -ForegroundColor Cyan
+
 foreach ($mod_dir in $MOD_DIRS) {
     $remote = Get-Remote-Filelist $mod_dir
     $local = Get-Local-Filelist $mod_dir
@@ -224,7 +230,7 @@ foreach ($mod_dir in $MOD_DIRS) {
         $relative_path = Join-Path -Path $mod_dir -ChildPath $localfile
         $full_path = Join-Path -Path $DOWNLOAD_PATH -ChildPath $relative_path
         if (-not $remote.Contains($localfile)) {
-            Write-Host "deleting file removed from remote: ${relative_path}"
+            Write-Host "! Deleting file no longer on remote: ${relative_path}"
             Remove-Item -Path $full_path -Force
         } else {
             $modinfo = Get-Mod-Info-From-Archive($full_path)
@@ -235,72 +241,92 @@ foreach ($mod_dir in $MOD_DIRS) {
     foreach ($remotefile in $remote) {
         if (-not $local.Contains($remotefile)) {
             $relative_path = Join-Path -Path $mod_dir -ChildPath $remotefile
-            Write-Host "found remotely, missing locally: ${relative_path}"
+            Write-Host "! Found remotely, missing locally: ${relative_path}"
             throw "this should not happen"
         }
     }
 }
 
+Write-Host ""
+Write-Host "### SCANNING INSTALLED MODS ###" -ForegroundColor Cyan
+
 $existing_modfiles = Get-ChildItem -Path $MW5_DIR -Filter 'mod.json' -Recurse
 
 $existing_mods = @{}
 
-foreach ($existing in $existing_modfiles) {
-    Write-Host "existing: $($existing.FullName)"
-    $modinfo = Get-Mod-Info-From-File $existing
+foreach ($jsonfile in ($existing_modfiles | Sort-Object)) {
+    # Write-Host "existing: $($jsonfile.FullName)"
+    $modinfo = Get-Mod-Info-From-File $jsonfile
 
-    Write-Host -NoNewline "Found existing mod "
-    Write-Mod-Name
+    Write-Host -NoNewline "* Found installed mod "
+    Write-Mod-Name $modinfo
     Write-Host -NoNewline " ("
-    Write-Mod-Version
-    Write-Host ")"
-    if (-not $existing_mods.ContainsKey($modinfo.internalPath)) {
+    Write-Mod-Version $modinfo
+    Write-Host -NoNewline ") at "
+    Write-Host $modinfo.internalPath -ForegroundColor Magenta
+
+    if ($existing_mods.ContainsKey($modinfo.internalPath)) {
+        # skip if we've already found a mod.json, this is probably some sub-file
+    } else {
         $existing_mods.Add($modinfo.internalPath, $modinfo)
     }
 }
 
-foreach ($key in $active_mods.Keys) {
-    $active = $active_mods[$key]
+Write-Host ""
+Write-Host "### SYNCING DOWNLOADS TO MOD DIRECTORY ###" -ForegroundColor Cyan
+
+$active_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-Object {
+    $key = $_.Key
+    $active = $_.Value
     $existing = $existing_mods[$key]
 
-    if ($existing -and ($existing.version -eq $active.version) -and ($existing.buildNumber -eq $active.buildNumber)) {
-        Write-Host -NoNewline "✅ "
-        Write-Mod-Name $existing
-        Write-Host -NoNewline " already installed: ";
-        Write-Mod-Version $existing
-        Write-Host ""
+    # Write-Host "existing: " + ($existing | Out-String)
+    # Write-Host "active: " + ($active | Out-String)
+
+    if ($existing_mods.ContainsKey($key) -and ($existing.version -eq $active.version) -and ($existing.buildNumber -eq $active.buildNumber)) {
+        Write-Host -ForegroundColor DarkGray "* $($existing.displayName) already installed: version $($existing.version), build $($existing.buildNumber)"
     } else {
-        if ($existing -and $existing.version) {
-            Write-Host -NoNewline "❌ Deleting existing "
+        if ($existing_mods.ContainsKey($key) -and $existing.version) {
+            Write-Host -NoNewline "! Deleting existing "
             Write-Mod-Name $existing
+            Write-Host -NoNewline " "
             Write-Mod-Version $existing
-            Write-Host ""
+            Write-Host -NoNewline "... "
 
             Remove-Item (Join-Path -Path $UNPACK_DIR -ChildPath $existing.internalPath) -Recurse -Force
+
+            Write-Host "done"
         }
-        Write-Host -NoNewline "🔥 "
+        Write-Host -NoNewline "+ "
         Write-Mod-Name $active
         Write-Host -NoNewline " new or changed: "
-        if ($existing) {
+        if ($existing_mods.ContainsKey($key)) {
             Write-Mod-Version $existing
             Write-Host -NoNewline " => "
         }
         Write-Mod-Version $active
         Write-Host ""
 
-        Write-Host "  📦 Unpacking" (Split-Path $active.file -Leaf -Resolve)
+        Write-Host -NoNewline "  * Unpacking $(Split-Path $active.file -Leaf -Resolve)... "
         Expand-Mod $active
+        Write-Host "done"
     }
 }
 
-foreach ($key in $existing_mods.Keys) {
-    $active = $active_mods[$key]
-    $existing = $existing_mods[$key]
+Write-Host ""
+Write-Host "### REMOVING OBSOLETE MODS ###" -ForegroundColor Cyan
+
+$existing_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-Object {
+    $existing = $_.Value
+    $active = $active_mods[$_.Key]
 
     if (-not $active) {
-        Write-Host -NoNewline "❌ Deleting removed $($existing.displayName) ("
+        Write-Host -NoNewline "! Deleting removed "
+        Write-Mod-Name $existing
+        Write-Host -NoNewline " ("
         Write-Mod-Version $existing
         Write-Host ") mod from $($existing.internalPath)"
-        # Remove-Item (Join-Path -Path $UNPACK_DIR -ChildPath $existing.internalPath) -Recurse -Force
+        Remove-Item (Join-Path -Path $UNPACK_DIR -ChildPath $existing.internalPath) -Recurse -Force
     }
 }
+
