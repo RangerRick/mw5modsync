@@ -1,6 +1,8 @@
 # SET THIS TO YOUR MECHWARRIOR 5 DIRECTORY!
 $MW5_DIR="C:\Program Files\Epic Games\MW5Mercs"
-$MW5_DIR="/tmp/MW5Mercs"
+
+# don't uncomment this, Ben just uses this for testing on his Mac
+#$MW5_DIR="/tmp/MW5Mercs"
 
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
