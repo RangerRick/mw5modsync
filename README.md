@@ -18,4 +18,6 @@ Installation
 Running
 -------
 
-All you need to do is run the `mw5-sync` command.
+Right-click on the `do-sync.bat` file and run it as an administrator.
+
+(This is necessary to avoid issues with running powershell scripts without the right permissions.)
