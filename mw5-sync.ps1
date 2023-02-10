@@ -118,10 +118,11 @@ function Get-Remote-Filelist {
 function Get-Mod-Info-From-File {
     param( $_file )
 
-    $contents = Get-Content -Path $_file -Raw
+    $contents = Get-Content -Path $_file.FullName -Raw
     $json = ConvertFrom-Json -InputObject $contents
     return @{
-        file = $_file.ToString()
+        file = $_file.FullName.ToString()
+        # TODO: relative to mods/
         internalPath = $_file.ToString().Split([IO.Path]::DirectorySeparatorChar)[0]
         displayName = $json.displayName
         version = $json.version
@@ -140,7 +141,7 @@ function Get-Mod-Info-From-Archive {
         $zip = [IO.Compression.ZipFile]::OpenRead($_file)
         $modfile = $zip.Entries | Where-Object { $_.Name -eq 'mod.json' }
         # Write-Host "modfile in ${_file}: ${modfile}"
-        $tempFile = New-TemporaryFile
+        $tempFile = Get-Item ([System.IO.Path]::GetTempFilename())
         [IO.Compression.ZipFileExtensions]::ExtractToFile($modfile, $tempFile, $true)
         $zip.Dispose()
         $contents = Get-Content -Path $tempFile -Raw
@@ -185,7 +186,9 @@ function Expand-Mod {
     param($_mod)
 
     if (is_zip($_mod["file"])) {
+        $global:ProgressPreference = 'SilentlyContinue'
         Expand-Archive -LiteralPath $_mod["file"] -DestinationPath "${UNPACK_DIR}" -Force
+        $global:ProgressPreference = 'Continue'
     } elseif (is_rar($_mod["file"])) {
         unrar -y x -idq $_mod["file"] -op $UNPACK_DIR
     } elseif (is_7zip($_mod["file"])) {
@@ -238,23 +241,22 @@ foreach ($mod_dir in $MOD_DIRS) {
     }
 }
 
-$existing_modfiles = Get-ChildItem -Path $MW5_DIR -Filter mod.json -Recurse
+$existing_modfiles = Get-ChildItem -Path $MW5_DIR -Filter 'mod.json' -Recurse
 
 $existing_mods = @{}
 
 foreach ($existing in $existing_modfiles) {
-    $modfile = $existing.ToString().replace($UNPACK_DIR + [IO.Path]::DirectorySeparatorChar, '')
-    $contents = Get-Content -Path $existing -Raw
-    $json = ConvertFrom-Json -InputObject $contents
+    Write-Host "existing: $($existing.FullName)"
+    $modinfo = Get-Mod-Info-From-File $existing
 
-    $modinfo = @{
-        file = $existing
-        internalPath = $modfile.ToString().Split([IO.Path]::DirectorySeparatorChar)[0]
-        displayName = $json.displayName
-        version = $json.version
-        buildNumber = $json.buildNumber
+    Write-Host -NoNewline "Found existing mod "
+    Write-Mod-Name
+    Write-Host -NoNewline " ("
+    Write-Mod-Version
+    Write-Host ")"
+    if (-not $existing_mods.ContainsKey($modinfo.internalPath)) {
+        $existing_mods.Add($modinfo.internalPath, $modinfo)
     }
-    $existing_mods.Add($modinfo["internalPath"], $modinfo)
 }
 
 foreach ($key in $active_mods.Keys) {
@@ -281,7 +283,7 @@ foreach ($key in $active_mods.Keys) {
         Write-Host -NoNewline " new or changed: "
         if ($existing) {
             Write-Mod-Version $existing
-            Write-Host -NoNewline " → "
+            Write-Host -NoNewline " => "
         }
         Write-Mod-Version $active
         Write-Host ""
@@ -296,9 +298,9 @@ foreach ($key in $existing_mods.Keys) {
     $existing = $existing_mods[$key]
 
     if (-not $active) {
-        Write-Host -NoNewline "❌ Deleting removed ("
+        Write-Host -NoNewline "❌ Deleting removed $($existing.displayName) ("
         Write-Mod-Version $existing
         Write-Host ") mod from $($existing.internalPath)"
-        Remove-Item (Join-Path -Path $UNPACK_DIR -ChildPath $existing.internalPath) -Recurse -Force
+        # Remove-Item (Join-Path -Path $UNPACK_DIR -ChildPath $existing.internalPath) -Recurse -Force
     }
 }
