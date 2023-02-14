@@ -59,11 +59,13 @@ function Get-File {
     }
     $output_file = Join-Path -Path $output_dir -ChildPath $_filename
 
-    Write-Host -NoNewline "* Downloading ${_folder}/${_filename}... "
+    Write-Host -NoNewline "* Downloading ${_folder}/"
+    Write-Host -NoNewline -ForegroundColor Blue ${_filename}
+    Write-Host -NoNewline "... "
     $escaped = [uri]::EscapeUriString($_filename)
-    $ProgressPreference = 'SilentlyContinue'
+    $global:ProgressPreference = 'SilentlyContinue'
     $response = Invoke-WebRequest -Uri "${root}/${escaped}" -Method Head
-    $ProgressPreference = 'Continue'
+    $global:ProgressPreference = 'Continue'
     if (Test-Path -Path $output_file) {
         $file = Get-Item $output_file
         $content_length_string = $response.Headers.'Content-Length'
@@ -74,9 +76,9 @@ function Get-File {
         }
         Remove-Item -Force $output_file
     }
-    $ProgressPreference = 'SilentlyContinue'
+    $global:ProgressPreference = 'SilentlyContinue'
     Invoke-WebRequest -Uri "${root}/${_filename}" -OutFile $output_file
-    $ProgressPreference = 'Continue'
+    $global:ProgressPreference = 'Continue'
     Write-Host "done"
 }
 
@@ -96,7 +98,7 @@ function Get-Remote-Filelist {
 
     $ret = @()
     $escaped = [uri]::EscapeUriString($_folder)
-    $ProgressPreference = 'SilentlyContinue'
+    $global:ProgressPreference = 'SilentlyContinue'
     foreach ($href in (Invoke-WebRequest -Uri ("${_server_root}/${escaped}/")).Links.Href) {
         $unescaped = [uri]::UnescapeDataString($href)
         if (is_7zip($unescaped)) {
@@ -114,7 +116,7 @@ function Get-Remote-Filelist {
             Write-Warning "Get-Remote-Filelist: unknown file type: ${unescaped}"
         }
     }
-    $ProgressPreference = 'Continue'
+    $global:ProgressPreference = 'Continue'
     return ,$ret
 }
 
@@ -124,12 +126,16 @@ function Get-Mod-Info-From-File {
     $contents = Get-Content -Path $_file.FullName -Raw
     $json = ConvertFrom-Json -InputObject $contents
 
+    # Write-Host "Full Name: $($_file.FullName)"
     $_relativeName = $_file.FullName.ToString()
     $_relativeName = $_relativeName.replace(($UNPACK_DIR + [IO.Path]::DirectorySeparatorChar), '')
 
+    $_internalPath = $_relativeName.Split([IO.Path]::DirectorySeparatorChar)[0]
+
     return @{
+        id = $_internalPath.ToLower()
         file = $_file.FullName.ToString()
-        internalPath = $_relativeName.Split([IO.Path]::DirectorySeparatorChar)[0]
+        internalPath = $_internalPath
         displayName = $json.displayName
         version = $json.version
         buildNumber = $json.buildNumber
@@ -137,14 +143,14 @@ function Get-Mod-Info-From-File {
 }
 
 function Get-Mod-Info-From-Archive {
-    param( $_file )
+    param( $_archive_file )
 
     $json = $null
     $modfile = $null
     $modfilter = '*' + [IO.Path]::DirectorySeparatorChar + 'mod.json'
 
-    if (is_zip($_file)) {
-        $zip = [IO.Compression.ZipFile]::OpenRead($_file)
+    if (is_zip($_archive_file)) {
+        $zip = [IO.Compression.ZipFile]::OpenRead($_archive_file)
         $modfile = $zip.Entries | Where-Object { $_.Name -eq 'mod.json' }
         # Write-Host "modfile in ${_file}: ${modfile}"
         $tempFile = Get-Item ([System.IO.Path]::GetTempFilename())
@@ -153,35 +159,38 @@ function Get-Mod-Info-From-Archive {
         $contents = Get-Content -Path $tempFile -Raw
         $json = ConvertFrom-Json -InputObject $contents
         Remove-Item -Path $tempFile -Force
-    } elseif (is_rar($_file)) {
-        $modfile = unrar lb "${_file}" | Where-Object {$_ -like $modfilter } | Out-String
+    } elseif (is_rar($_archive_file)) {
+        $modfile = unrar lb "${_archive_file}" | Where-Object {$_ -like $modfilter } | Out-String
         if ($LASTEXITCODE -gt 0) {
-            throw "failed to determine mod.json path in ${_file}"
+            throw "failed to determine mod.json path inside archive ${_archive_file}"
         }
         $modfile = $modfile.replace("`r`n", "").replace("`n", "").replace('Path = ', '')
-        $contents = unrar p "${_file}" $modfile | Out-String
+        $contents = unrar p "${_archive_file}" $modfile | Out-String
         if ($LASTEXITCODE -gt 0) {
-            throw "failed to get contents of mod.json from ${_file}"
+            throw "failed to get contents of mod.json inside archive ${_archive_file}"
         }
         $json = ConvertFrom-Json -InputObject $contents
-    } elseif (is_7zip($_file)) {
-        $modfile = 7z l -slt "${_file}" | Where-Object {$_ -like $modfilter } | Out-String
+    } elseif (is_7zip($_archive_file)) {
+        $modfile = 7z l -slt "${_archive_file}" | Where-Object {$_ -like $modfilter } | Out-String
         if ($LASTEXITCODE -gt 0) {
-            throw "failed to determine mod.json path in ${_file}"
+            throw "failed to determine mod.json path inside archive ${_archive_file}"
         }
         $modfile = $modfile.replace("`r`n", "").replace("`n", "").replace('Path = ', '')
-        $contents = 7z e -so "${_file}" "${modfile}" | Out-String
+        $contents = 7z e -so "${_archive_file}" "${modfile}" | Out-String
         if ($LASTEXITCODE -gt 0) {
-            throw "failed to get contents of mod.json from ${_file}"
+            throw "failed to get contents of mod.json inside archive ${_archive_file}"
         }
         $json = ConvertFrom-Json -InputObject $contents
     } else {
-        throw "Unknown file type: ${_file}"
+        throw "Unknown file type: ${_archive_file}"
     }
 
+    $_archiveInternalPath = ($modfile.ToString() -split "[/\\]")[0]
+
     return @{
-        file = $_file.ToString()
-        internalPath = $modfile.ToString().Split([IO.Path]::DirectorySeparatorChar)[0]
+        id = $_archiveInternalPath.ToLower()
+        file = $_archive_file.ToString()
+        internalPath = $_archiveInternalPath
         displayName = $json.displayName
         version = $json.version
         buildNumber = $json.buildNumber
@@ -191,14 +200,14 @@ function Get-Mod-Info-From-Archive {
 function Expand-Mod {
     param($_mod)
 
-    if (is_zip($_mod["file"])) {
+    if (is_zip($_mod.file)) {
         $global:ProgressPreference = 'SilentlyContinue'
-        Expand-Archive -LiteralPath $_mod["file"] -DestinationPath "${UNPACK_DIR}" -Force
+        Expand-Archive -LiteralPath $_mod.file -DestinationPath "${UNPACK_DIR}" -Force
         $global:ProgressPreference = 'Continue'
-    } elseif (is_rar($_mod["file"])) {
-        unrar -y x -idq $_mod["file"] -op $UNPACK_DIR
-    } elseif (is_7zip($_mod["file"])) {
-        7z -y x $_mod["file"] "-o${UNPACK_DIR}" | Select-String "Error" -Context 10
+    } elseif (is_rar($_mod.file)) {
+        unrar -y x -idq $_mod.file -op $UNPACK_DIR
+    } elseif (is_7zip($_mod.file)) {
+        7z -y x $_mod.file "-o${UNPACK_DIR}" | Select-String "Error" -Context 10
     }
     if ($LASTEXITCODE -gt 0) {
         throw "failed to unpack file"
@@ -206,18 +215,18 @@ function Expand-Mod {
 }
 
 function Write-Mod-Name {
-    param($mod)
+    param($_mod)
 
-    Write-Host -NoNewline -ForegroundColor Green $mod.displayName
+    Write-Host -NoNewline -ForegroundColor Green $_mod.displayName
 }
 
 function Write-Mod-Version {
-    param($mod)
+    param($_mod)
 
     Write-Host -NoNewline "version "
-    Write-Host -NoNewline -ForegroundColor Yellow $mod.version
+    Write-Host -NoNewline -ForegroundColor Yellow $_mod.version
     Write-Host -NoNewline ", build "
-    Write-Host -NoNewline -ForegroundColor Yellow $mod.buildNumber
+    Write-Host -NoNewline -ForegroundColor Yellow $_mod.buildNumber
 }
 
 $active_mods = @{}
@@ -225,24 +234,24 @@ $active_mods = @{}
 Write-Host "### DOWNLOADING NEW FILES ###" -ForegroundColor Cyan
 
 foreach ($mod_dir in $MOD_DIRS) {
-    $remote = Get-Remote-Filelist $mod_dir
-    $local = Get-Local-Filelist $mod_dir
+    $remote_filelist = Get-Remote-Filelist $mod_dir
+    $local_filelist = Get-Local-Filelist $mod_dir
 
-    foreach ($localfile in $local) {
+    foreach ($localfile in $local_filelist) {
         $relative_path = Join-Path -Path $mod_dir -ChildPath $localfile
         $full_path = Join-Path -Path $DOWNLOAD_PATH -ChildPath $relative_path
-        if (-not $remote.Contains($localfile)) {
+        if (-not $remote_filelist.Contains($localfile)) {
             Write-Host "! Deleting file no longer on remote: ${relative_path}"
             Remove-Item -Path $full_path -Force
         } else {
-            $modinfo = Get-Mod-Info-From-Archive($full_path)
-            $active_mods.Add($modinfo["internalPath"], $modinfo)
+            $archive_modinfo = Get-Mod-Info-From-Archive($full_path)
+            $active_mods[$archive_modinfo.id] = $archive_modinfo
         }
     }
 
-    foreach ($remotefile in $remote) {
-        if (-not $local.Contains($remotefile)) {
-            $relative_path = Join-Path -Path $mod_dir -ChildPath $remotefile
+    foreach ($remote_file in $remote_filelist) {
+        if (-not $local_filelist.Contains($remote_file)) {
+            $relative_path = Join-Path -Path $mod_dir -ChildPath $remote_file
             Write-Host "! Found remotely, missing locally: ${relative_path}"
             throw "this should not happen"
         }
@@ -252,64 +261,62 @@ foreach ($mod_dir in $MOD_DIRS) {
 Write-Host ""
 Write-Host "### SCANNING INSTALLED MODS ###" -ForegroundColor Cyan
 
-$existing_modfiles = Get-ChildItem -Path $MW5_DIR -Filter 'mod.json' -Recurse
+$existing_modfiles = Get-ChildItem -Path $UNPACK_DIR -Filter 'mod.json' -Recurse
 
 $existing_mods = @{}
 
-foreach ($jsonfile in ($existing_modfiles | Sort-Object)) {
+foreach ($json_file in ($existing_modfiles | Sort-Object)) {
     # Write-Host "existing: $($jsonfile.FullName)"
-    $modinfo = Get-Mod-Info-From-File $jsonfile
+    $json_modinfo = Get-Mod-Info-From-File $json_file
 
     Write-Host -NoNewline "* Found installed mod "
-    Write-Mod-Name $modinfo
+    Write-Mod-Name $json_modinfo
     Write-Host -NoNewline " ("
-    Write-Mod-Version $modinfo
+    Write-Mod-Version $json_modinfo
     Write-Host -NoNewline ") at "
-    Write-Host $modinfo.internalPath -ForegroundColor Magenta
+    Write-Host $json_modinfo.internalPath -ForegroundColor Magenta
 
-    if ($existing_mods.ContainsKey($modinfo.internalPath)) {
-        # skip if we've already found a mod.json, this is probably some sub-file
-    } else {
-        $existing_mods.Add($modinfo.internalPath, $modinfo)
-    }
+    $existing_mods[$json_modinfo.id] = $json_modinfo;
 }
 
 Write-Host ""
 Write-Host "### SYNCING DOWNLOADS TO MOD DIRECTORY ###" -ForegroundColor Cyan
 
 $active_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-Object {
-    $key = $_.Key
+    $id = $_.Key.ToString().ToLower()
     $active = $_.Value
-    $existing = $existing_mods[$key]
+    $existing = $existing_mods[$id]
 
+    # Write-Host "id: $($id)"
     # Write-Host "existing: " + ($existing | Out-String)
     # Write-Host "active: " + ($active | Out-String)
 
-    if ($existing_mods.ContainsKey($key) -and ($existing.version -eq $active.version) -and ($existing.buildNumber -eq $active.buildNumber)) {
+    if ($existing.id -and ($existing.version -eq $active.version) -and ($existing.buildNumber -eq $active.buildNumber)) {
         Write-Host -ForegroundColor DarkGray "* $($existing.displayName) already installed: version $($existing.version), build $($existing.buildNumber)"
     } else {
-        if ($existing_mods.ContainsKey($key) -and $existing.version) {
-            Write-Host -NoNewline "! Deleting existing "
-            Write-Mod-Name $existing
-            Write-Host -NoNewline " "
-            Write-Mod-Version $existing
-            Write-Host -NoNewline "... "
-
-            Remove-Item (Join-Path -Path $UNPACK_DIR -ChildPath $existing.internalPath) -Recurse -Force
-
-            Write-Host "done"
-        }
         Write-Host -NoNewline "+ "
         Write-Mod-Name $active
         Write-Host -NoNewline " new or changed: "
-        if ($existing_mods.ContainsKey($key)) {
+        if ($existing.id) {
             Write-Mod-Version $existing
             Write-Host -NoNewline " => "
         }
         Write-Mod-Version $active
         Write-Host ""
 
-        Write-Host -NoNewline "  * Unpacking $(Split-Path $active.file -Leaf -Resolve)... "
+        if ($existing.id -and $existing.version) {
+            Write-Host -NoNewline "  ! Deleting existing "
+            Write-Host -NoNewline -ForegroundColor Magenta $existing.internalPath
+            Write-Host -NoNewline " mod directory... "
+
+            Remove-Item (Join-Path -Path $UNPACK_DIR -ChildPath $existing.internalPath) -Recurse -Force
+
+            Write-Host "done"
+        }
+        $archive_file_name = Split-Path $active.file -Leaf -Resolve
+        Write-Host -NoNewline "  * Unpacking archive: "
+        Write-Host -NoNewline -ForegroundColor Blue $archive_file_name
+        Write-Host -NoNewline "... "
         Expand-Mod $active
         Write-Host "done"
     }
@@ -319,16 +326,20 @@ Write-Host ""
 Write-Host "### REMOVING OBSOLETE MODS ###" -ForegroundColor Cyan
 
 $existing_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-Object {
+    $id = $_.Key.ToString()
     $existing = $_.Value
-    $active = $active_mods[$_.Key]
+    $active = $active_mods[$id]
 
     if (-not $active) {
         Write-Host -NoNewline "! Deleting removed "
         Write-Mod-Name $existing
         Write-Host -NoNewline " ("
         Write-Mod-Version $existing
-        Write-Host ") mod from $($existing.internalPath)"
+        Write-Host -NoNewline ") mod from the "
+        Write-Host -NoNewline -ForegroundColor Magenta $existing.internalPath
+        Write-Host " directory..."
         Remove-Item (Join-Path -Path $UNPACK_DIR -ChildPath $existing.internalPath) -Recurse -Force
+        Write-Host "done"
     }
 }
 
