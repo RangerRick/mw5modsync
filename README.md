@@ -18,6 +18,6 @@ Installation
 Running
 -------
 
-Right-click on the `do-sync.bat` file and run it as an administrator.
+Right-click on the `RUNME` file and run it as an administrator.
 
 (This is necessary to avoid issues with running powershell scripts without changing how your system handles script permissions.)
