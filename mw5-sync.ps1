@@ -64,7 +64,7 @@ function Get-File {
     Write-Host -NoNewline "... "
     $escaped = [uri]::EscapeUriString($_filename)
     $global:ProgressPreference = 'SilentlyContinue'
-    $response = Invoke-WebRequest -Uri "${root}/${escaped}" -Method Head
+    $response = Invoke-WebRequest -UseBasicParsing -Uri "${root}/${escaped}" -Method Head
     $global:ProgressPreference = 'Continue'
     if (Test-Path -Path $output_file) {
         $file = Get-Item $output_file
@@ -77,7 +77,7 @@ function Get-File {
         Remove-Item -Force $output_file
     }
     $global:ProgressPreference = 'SilentlyContinue'
-    Invoke-WebRequest -Uri "${root}/${_filename}" -OutFile $output_file
+    Invoke-WebRequest -UseBasicParsing -Uri "${root}/${_filename}" -OutFile $output_file
     $global:ProgressPreference = 'Continue'
     Write-Host "done"
 }
@@ -99,7 +99,7 @@ function Get-Remote-Filelist {
     $ret = @()
     $escaped = [uri]::EscapeUriString($_folder)
     $global:ProgressPreference = 'SilentlyContinue'
-    foreach ($href in (Invoke-WebRequest -Uri ("${_server_root}/${escaped}/")).Links.Href) {
+    foreach ($href in (Invoke-WebRequest -UseBasicParsing -Uri ("${_server_root}/${escaped}/")).Links.Href) {
         $unescaped = [uri]::UnescapeDataString($href)
         if (is_7zip($unescaped)) {
             Get-File $_server_root $_folder $unescaped
