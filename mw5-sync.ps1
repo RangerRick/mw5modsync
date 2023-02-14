@@ -261,11 +261,11 @@ foreach ($mod_dir in $MOD_DIRS) {
 Write-Host ""
 Write-Host "### SCANNING INSTALLED MODS ###" -ForegroundColor Cyan
 
-$existing_modfiles = Get-ChildItem -Path $UNPACK_DIR -Filter 'mod.json' -Recurse
+$existing_modfiles = Get-ChildItem -Path $UNPACK_DIR -Filter 'mod.json' -Recurse | Sort-Object
 
 $existing_mods = @{}
 
-foreach ($json_file in ($existing_modfiles | Sort-Object)) {
+foreach ($json_file in $existing_modfiles) {
     # Write-Host "existing: $($jsonfile.FullName)"
     $json_modinfo = Get-Mod-Info-From-File $json_file
 
