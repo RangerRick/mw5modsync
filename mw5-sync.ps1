@@ -13,7 +13,7 @@ if (-not ${env:TEMP}) {
     ${env:TEMP} = "/tmp"
 }
 
-${env:PATH} += ";."
+$env:PATH = '{0}{1}{2}' -f $env:PATH,[IO.Path]::PathSeparator,'.'
 
 $UNPACK_DIR = Join-Path -Path (Join-Path -Path $MW5_DIR -ChildPath "MW5Mercs") -ChildPath "mods"
 $DOWNLOAD_PATH = Join-Path -Path ${env:TEMP} -ChildPath "MW5Mercs_mod_downloads"
