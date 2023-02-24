@@ -197,13 +197,21 @@ function Get-Mod-Info-From-Archive {
     }
 }
 
+function Get-Cygpath {
+    param($_path)
+
+    $_cygwin_path = cygpath --unix "${_path}" | Out-String
+    $_cygwin_path = $_cygwin_path.replace("`r`n", "").replace("`n", "")
+    return $_cygwin_path
+}
+
 function Expand-Mod {
     param($_mod)
 
     if (is_zip($_mod.file)) {
-        $global:ProgressPreference = 'SilentlyContinue'
-        Expand-Archive -LiteralPath $_mod.file -DestinationPath "${UNPACK_DIR}" -Force
-        $global:ProgressPreference = 'Continue'
+        $_cyg_unpack_dir = Get-Cygpath $UNPACK_DIR
+        $_cyg_zip_file = Get-Cygpath $_mod.file
+        unzip -q -o -d "${_cyg_unpack_dir}" "${_cyg_zip_file}"
     } elseif (is_rar($_mod.file)) {
         unrar -y x -idq $_mod.file -op $UNPACK_DIR
     } elseif (is_7zip($_mod.file)) {
@@ -233,28 +241,17 @@ $active_mods = @{}
 
 Write-Host "### DOWNLOADING NEW FILES ###" -ForegroundColor Cyan
 
+$_local_download_path = Get-Cygpath "${DOWNLOAD_PATH}"
+rsync -avr --partial --progress --no-perms --delete --exclude=Depricated --exclude=Deprecated --exclude="Virtual Reality" "ln1.raccoonfink.com::mw5/" "${_local_download_path}/"
+
 foreach ($mod_dir in $MOD_DIRS) {
-    $remote_filelist = Get-Remote-Filelist $mod_dir
     $local_filelist = Get-Local-Filelist $mod_dir
 
     foreach ($localfile in $local_filelist) {
         $relative_path = Join-Path -Path $mod_dir -ChildPath $localfile
         $full_path = Join-Path -Path $DOWNLOAD_PATH -ChildPath $relative_path
-        if (-not $remote_filelist.Contains($localfile)) {
-            Write-Host "! Deleting file no longer on remote: ${relative_path}"
-            Remove-Item -Path $full_path -Force
-        } else {
             $archive_modinfo = Get-Mod-Info-From-Archive($full_path)
             $active_mods[$archive_modinfo.id] = $archive_modinfo
-        }
-    }
-
-    foreach ($remote_file in $remote_filelist) {
-        if (-not $local_filelist.Contains($remote_file)) {
-            $relative_path = Join-Path -Path $mod_dir -ChildPath $remote_file
-            Write-Host "! Found remotely, missing locally: ${relative_path}"
-            throw "this should not happen"
-        }
     }
 }
 
