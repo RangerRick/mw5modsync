@@ -44,6 +44,14 @@ function is_zip {
     return $_file.EndsWith(".zip", "CurrentCultureIgnoreCase");
 }
 
+function Get-Cygpath {
+    param($_path)
+
+    $_cygwin_path = cygpath --unix "${_path}" | Out-String
+    $_cygwin_path = $_cygwin_path.replace("`r`n", "").replace("`n", "")
+    return $_cygwin_path
+}
+
 function Get-File {
     param(
         $_url,
@@ -171,12 +179,14 @@ function Get-Mod-Info-From-Archive {
         }
         $json = ConvertFrom-Json -InputObject $contents
     } elseif (is_7zip($_archive_file)) {
-        $modfile = 7z l -slt "${_archive_file}" | Where-Object {$_ -like $modfilter } | Out-String
+        $modfilter = '*/mod.json'
+        $cyg_archive_file = Get-Cygpath "${_archive_file}"
+        $modfile = 7z l -slt "${cyg_archive_file}" | Where-Object {$_ -like $modfilter } | Out-String
         if ($LASTEXITCODE -gt 0) {
             throw "failed to determine mod.json path inside archive ${_archive_file}"
         }
         $modfile = $modfile.replace("`r`n", "").replace("`n", "").replace('Path = ', '')
-        $contents = 7z e -so "${_archive_file}" "${modfile}" | Out-String
+        $contents = 7z e -so "${cyg_archive_file}" "${modfile}" | Out-String
         if ($LASTEXITCODE -gt 0) {
             throw "failed to get contents of mod.json inside archive ${_archive_file}"
         }
@@ -197,14 +207,6 @@ function Get-Mod-Info-From-Archive {
     }
 }
 
-function Get-Cygpath {
-    param($_path)
-
-    $_cygwin_path = cygpath --unix "${_path}" | Out-String
-    $_cygwin_path = $_cygwin_path.replace("`r`n", "").replace("`n", "")
-    return $_cygwin_path
-}
-
 function Expand-Mod {
     param($_mod)
 
@@ -215,7 +217,9 @@ function Expand-Mod {
     } elseif (is_rar($_mod.file)) {
         unrar -y x -idq $_mod.file -op $UNPACK_DIR
     } elseif (is_7zip($_mod.file)) {
-        7z -y x $_mod.file "-o${UNPACK_DIR}" | Select-String "Error" -Context 10
+        $cyg_archive_file = Get-Cygpath $_mod.file
+        $output_dir = Get-Cygpath $UNPACK_DIR
+        7z -y x "${cyg_archive_file}" "-o${output_dir}" | Select-String "Error" -Context 10
     }
     if ($LASTEXITCODE -gt 0) {
         throw "failed to unpack file"
@@ -242,7 +246,7 @@ $active_mods = @{}
 Write-Host "### DOWNLOADING NEW FILES ###" -ForegroundColor Cyan
 
 $_local_download_path = Get-Cygpath "${DOWNLOAD_PATH}"
-rsync -avr --partial --progress --no-perms --delete --exclude=Depricated --exclude=Deprecated --exclude="Virtual Reality" "ln1.raccoonfink.com::mw5/" "${_local_download_path}/"
+rsync -avr --partial --progress --no-perms --delete --exclude='*.filepart' --exclude=Depricated --exclude=Deprecated --exclude="Virtual Reality" "ln1.raccoonfink.com::mw5/" "${_local_download_path}/"
 
 foreach ($mod_dir in $MOD_DIRS) {
     $local_filelist = Get-Local-Filelist $mod_dir
