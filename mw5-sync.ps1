@@ -7,8 +7,6 @@ $MW5_DIR="C:\Program Files\Epic Games\MW5Mercs"
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 
-Add-Type -Assembly System.IO.Compression.FileSystem
-
 if (-not ${env:TEMP}) {
     ${env:TEMP} = "/tmp"
 }
@@ -158,15 +156,11 @@ function Get-Mod-Info-From-Archive {
     $modfilter = '*' + [IO.Path]::DirectorySeparatorChar + 'mod.json'
 
     if (is_zip($_archive_file)) {
-        $zip = [IO.Compression.ZipFile]::OpenRead($_archive_file)
-        $modfile = $zip.Entries | Where-Object { $_.Name -eq 'mod.json' }
-        # Write-Host "modfile in ${_file}: ${modfile}"
-        $tempFile = Get-Item ([System.IO.Path]::GetTempFilename())
-        [IO.Compression.ZipFileExtensions]::ExtractToFile($modfile, $tempFile, $true)
-        $zip.Dispose()
-        $contents = Get-Content -Path $tempFile -Raw
+        $_cyg_zip_file = Get-Cygpath $_archive_file
+        $modfile = unzip -Z1 "${_cyg_zip_file}" | Where-Object {$_ -like "*/mod.json"} | Out-String
+        $modfile = $modfile.replace("`r`n", "").replace("`n", "").replace('Path = ', '')
+        $contents = unzip -p "${_cyg_zip_file}" $modfile | Out-String
         $json = ConvertFrom-Json -InputObject $contents
-        Remove-Item -Path $tempFile -Force
     } elseif (is_rar($_archive_file)) {
         $modfile = unrar lb "${_archive_file}" | Where-Object {$_ -like $modfilter } | Out-String
         if ($LASTEXITCODE -gt 0) {
