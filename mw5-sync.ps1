@@ -14,7 +14,8 @@ if (-not ${env:TEMP}) {
 $env:PATH = '{0}{1}{2}' -f $env:PATH,[IO.Path]::PathSeparator,'.'
 
 $UNPACK_DIR = Join-Path -Path (Join-Path -Path $MW5_DIR -ChildPath "MW5Mercs") -ChildPath "mods"
-$DOWNLOAD_PATH = Join-Path -Path ${env:TEMP} -ChildPath "MW5Mercs_mod_downloads"
+$DOWNLOAD_PATH = Join-Path -Path (Join-Path -Path $MW5_DIR -ChildPath "MW5Mercs") -ChildPath "mw5modsync-cache"
+# $DOWNLOAD_PATH = Join-Path -Path ${env:TEMP} -ChildPath "MW5Mercs_mod_downloads"
 $MOD_DIRS = "Rise of Rasalhague", "MW2"
 
 if (-not (Test-Path -Path $UNPACK_DIR)) {
@@ -24,6 +25,7 @@ if (-not (Test-Path -Path $UNPACK_DIR)) {
 if (-not (Test-Path -Path $DOWNLOAD_PATH)) {
     New-Item -Path $DOWNLOAD_PATH -ItemType Directory
 }
+
 
 $_server_root="https://mw5.raccoonfink.com"
 
