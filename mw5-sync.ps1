@@ -52,44 +52,6 @@ function Get-Cygpath {
     return $_cygwin_path
 }
 
-function Get-File {
-    param(
-        $_url,
-        $_folder,
-        $_filename
-    )
-
-    $root = "${_url}/${_folder}"
-
-    $output_dir = Join-Path -Path $DOWNLOAD_PATH -ChildPath $_folder
-    if (-not (Test-Path -Path $output_dir)) {
-        New-Item -Path $output_dir -ItemType Directory
-    }
-    $output_file = Join-Path -Path $output_dir -ChildPath $_filename
-
-    Write-Host -NoNewline "* Downloading ${_folder}/"
-    Write-Host -NoNewline -ForegroundColor Blue ${_filename}
-    Write-Host -NoNewline "... "
-    $escaped = [uri]::EscapeUriString($_filename)
-    $global:ProgressPreference = 'SilentlyContinue'
-    $response = Invoke-WebRequest -UseBasicParsing -Uri "${root}/${escaped}" -Method Head
-    $global:ProgressPreference = 'Continue'
-    if (Test-Path -Path $output_file) {
-        $file = Get-Item $output_file
-        $content_length_string = $response.Headers.'Content-Length'
-        $content_length = [convert]::ToInt64($content_length_string, 10)
-        if ($file.Length -eq $content_length) {
-            Write-Host "already exists"
-            return
-        }
-        Remove-Item -Force $output_file
-    }
-    $global:ProgressPreference = 'SilentlyContinue'
-    Invoke-WebRequest -UseBasicParsing -Uri "${root}/${_filename}" -OutFile $output_file
-    $global:ProgressPreference = 'Continue'
-    Write-Host "done"
-}
-
 function Get-Local-Filelist {
     param( $_folder )
 
