@@ -101,33 +101,6 @@ function Get-Local-Filelist {
     return [array](Get-ChildItem -Path $localdir -File -Name)
 }
 
-function Get-Remote-Filelist {
-    param( $_folder )
-
-    $ret = @()
-    $escaped = [uri]::EscapeUriString($_folder)
-    $global:ProgressPreference = 'SilentlyContinue'
-    foreach ($href in (Invoke-WebRequest -UseBasicParsing -Uri ("${_server_root}/${escaped}/")).Links.Href) {
-        $unescaped = [uri]::UnescapeDataString($href)
-        if (is_7zip($unescaped)) {
-            Get-File $_server_root $_folder $unescaped
-            $ret += $unescaped
-        } elseif (is_rar($unescaped)) {
-            Get-File $_server_root $_folder $unescaped
-            $ret += $unescaped
-        } elseif (is_zip($unescaped)) {
-            Get-File $_server_root $_folder $unescaped
-            $ret += $unescaped
-        } elseif ($unescaped.StartsWith("?") -or ($unescaped -eq "/")) {
-            # ignore sorting stuff
-        } else {
-            Write-Warning "Get-Remote-Filelist: unknown file type: ${unescaped}"
-        }
-    }
-    $global:ProgressPreference = 'Continue'
-    return ,$ret
-}
-
 function Get-Mod-Info-From-File {
     param( $_file )
 
