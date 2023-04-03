@@ -100,54 +100,61 @@ function Get-Mod-Info-Files-From-List {
 function Get-Mod-Info-From-Archive {
     param( $_archive_file )
 
-    $json = $null
-    $modfile = $null
-    $modfilter = '*' + [IO.Path]::DirectorySeparatorChar + 'mod.json'
+    $json = @{}
 
     if (is_zip($_archive_file)) {
         $_cyg_zip_file = Get-Cygpath $_archive_file
-        $modfile = unzip -Z1 "${_cyg_zip_file}" | Where-Object {$_ -like "*/mod.json"} | Out-String
-        $modfile = $modfile.replace("`r`n", "").replace("`n", "").replace('Path = ', '')
-        $contents = unzip -p "${_cyg_zip_file}" $modfile | Out-String
-        $json = ConvertFrom-Json -InputObject $contents
+        $modfiles = unzip -Z1 "${_cyg_zip_file}" | Out-String | Get-Mod-Info-Files-From-List
+        $modfiles | ForEach-Object {
+            $modfile = $_
+            $contents = unzip -p "${_cyg_zip_file}" $modfile | Out-String
+            $json[$modfile] = ConvertFrom-Json -InputObject $contents
+        }
     } elseif (is_rar($_archive_file)) {
-        $modfile = unrar lb "${_archive_file}" | Where-Object {$_ -like $modfilter } | Out-String
+        $modfiles = unrar lb "${_archive_file}" | Out-String | Get-Mod-Info-Files-From-List
         if ($LASTEXITCODE -gt 0) {
             throw "failed to determine mod.json path inside archive ${_archive_file}"
         }
-        $modfile = $modfile.replace("`r`n", "").replace("`n", "").replace('Path = ', '')
-        $contents = unrar p "${_archive_file}" $modfile | Out-String
-        if ($LASTEXITCODE -gt 0) {
-            throw "failed to get contents of mod.json inside archive ${_archive_file}"
+        $modfiles | ForEach-Object {
+            $modfile = $_
+            $contents = unrar p "${_archive_file}" $modfile | Out-String
+            if ($LASTEXITCODE -gt 0) {
+                throw "failed to get contents of mod.json inside archive ${_archive_file}"
+            }
+            $json[$modfile] = ConvertFrom-Json -InputObject $contents
         }
-        $json = ConvertFrom-Json -InputObject $contents
     } elseif (is_7zip($_archive_file)) {
-        $modfilter = '*/mod.json'
         $cyg_archive_file = Get-Cygpath "${_archive_file}"
-        $modfile = 7z l -slt "${cyg_archive_file}" | Where-Object {$_ -like $modfilter } | Out-String
+        $modfiles = 7z l -slt "${cyg_archive_file}" | Out-String | Get-Mod-Info-Files-From-List
         if ($LASTEXITCODE -gt 0) {
             throw "failed to determine mod.json path inside archive ${_archive_file}"
         }
-        $modfile = $modfile.replace("`r`n", "").replace("`n", "").replace('Path = ', '')
-        $contents = 7z e -so "${cyg_archive_file}" "${modfile}" | Out-String
-        if ($LASTEXITCODE -gt 0) {
-            throw "failed to get contents of mod.json inside archive ${_archive_file}"
+        $modfiles | ForEach-Object {
+            $modfile = $_
+            $contents = 7z e -so "${cyg_archive_file}" "${modfile}" | Out-String
+            if ($LASTEXITCODE -gt 0) {
+                throw "failed to get contents of mod.json inside archive ${_archive_file}"
+            }
+            $json[$modfile] = ConvertFrom-Json -InputObject $contents
         }
-        $json = ConvertFrom-Json -InputObject $contents
     } else {
         throw "Unknown file type: ${_archive_file}"
     }
 
-    $_archiveInternalPath = ($modfile.ToString() -split "[/\\]")[0]
+    $ret = @()
+    foreach ($modfile in $json.Keys) {
+        $_archiveInternalPath = ($modfile.ToString() -split "[/\\]")[0]
 
-    return @{
-        id = $_archiveInternalPath.ToLower()
-        file = $_archive_file.ToString()
-        internalPath = $_archiveInternalPath
-        displayName = $json.displayName
-        version = $json.version
-        buildNumber = $json.buildNumber
+        $ret += @{
+            id = $_archiveInternalPath.ToLower()
+            file = $_archive_file.ToString()
+            internalPath = $_archiveInternalPath
+            displayName = $json[$modfile].displayName
+            version = $json[$modfile].version
+            buildNumber = $json[$modfile].buildNumber
+        }
     }
+    return $ret;
 }
 
 function Expand-Mod {
@@ -197,8 +204,10 @@ foreach ($mod_dir in $MOD_DIRS) {
     foreach ($localfile in $local_filelist) {
         $relative_path = Join-Path -Path $mod_dir -ChildPath $localfile
         $full_path = Join-Path -Path $DOWNLOAD_PATH -ChildPath $relative_path
-            $archive_modinfo = Get-Mod-Info-From-Archive($full_path)
+        Get-Mod-Info-From-Archive($full_path) | ForEach-Object {
+            $archive_modinfo = $_
             $active_mods[$archive_modinfo.id] = $archive_modinfo
+        }
     }
 }
 
@@ -208,6 +217,7 @@ Write-Host "### SCANNING INSTALLED MODS ###" -ForegroundColor Cyan
 $existing_modfiles = Get-ChildItem -Path $UNPACK_DIR -Filter 'mod.json' -Recurse | Sort-Object
 
 $existing_mods = @{}
+$unpacked_mods = @{}
 
 foreach ($json_file in $existing_modfiles) {
     # Write-Host "existing: $($jsonfile.FullName)"
@@ -261,8 +271,13 @@ $active_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-Ob
         Write-Host -NoNewline "  * Unpacking archive: "
         Write-Host -NoNewline -ForegroundColor Blue $archive_file_name
         Write-Host -NoNewline "... "
-        Expand-Mod $active
-        Write-Host "done"
+        if ($unpacked_mods.ContainsKey($archive_file_name)) {
+            Write-Host "already unpacked"
+        } else {
+            Expand-Mod $active
+            Write-Host "done"
+            $unpacked_mods[$archive_file_name] = $true
+        }
     }
 }
 
