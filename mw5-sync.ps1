@@ -88,6 +88,15 @@ function Get-Mod-Info-From-File {
     }
 }
 
+function Get-Mod-Info-Files-From-List {
+    param(
+        [Parameter(ValueFromPipeline=$true)]
+        $_archive_output
+    )
+
+    return $_archive_output -split '\r?\n' | Where-Object { $_ -match "^[^\\/]+[\\/]mod.json" } | ForEach-Object { $_.replace("Path = ", "") };
+}
+
 function Get-Mod-Info-From-Archive {
     param( $_archive_file )
 
