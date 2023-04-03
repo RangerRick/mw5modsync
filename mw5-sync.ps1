@@ -15,8 +15,6 @@ $env:PATH = '{0}{1}{2}' -f $env:PATH,[IO.Path]::PathSeparator,'.'
 
 $UNPACK_DIR = Join-Path -Path (Join-Path -Path $MW5_DIR -ChildPath "MW5Mercs") -ChildPath "mods"
 $DOWNLOAD_PATH = Join-Path -Path (Join-Path -Path $MW5_DIR -ChildPath "MW5Mercs") -ChildPath "mw5modsync-cache"
-# $DOWNLOAD_PATH = Join-Path -Path ${env:TEMP} -ChildPath "MW5Mercs_mod_downloads"
-$MOD_DIRS = "Rise of Rasalhague", "MW2"
 
 if (-not (Test-Path -Path $UNPACK_DIR)) {
     throw "mod directory ${UNPACK_DIR} does not exist"
@@ -198,7 +196,7 @@ Write-Host "### DOWNLOADING NEW FILES ###" -ForegroundColor Cyan
 $_local_download_path = Get-Cygpath "${DOWNLOAD_PATH}"
 rsync -avr --partial --progress --no-perms --delete --exclude='*.filepart' --exclude=Depricated --exclude=Deprecated --exclude="Virtual Reality" "ln1.raccoonfink.com::mw5/" "${_local_download_path}/"
 
-foreach ($mod_dir in $MOD_DIRS) {
+foreach ($mod_dir in (Get-ChildItem -Recurse -Directory $DOWNLOAD_PATH | Select-Object -ExpandProperty Name)) {
     $local_filelist = Get-Local-Filelist $mod_dir
 
     foreach ($localfile in $local_filelist) {
