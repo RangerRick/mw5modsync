@@ -47,6 +47,9 @@ function is_zip {
 function Get-Cygpath {
     param($_path)
 
+    if ([IO.Path]::DirectorySeparatorChar -eq '/') {
+        return $_path
+    }
     $_cygwin_path = cygpath --unix "${_path}" | Out-String
     $_cygwin_path = $_cygwin_path.replace("`r`n", "").replace("`n", "")
     return $_cygwin_path
