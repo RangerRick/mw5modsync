@@ -136,10 +136,11 @@ function Get-Mod-Info-From-Archive {
             $json[$modfile] = ConvertFrom-Json -InputObject $contents
         }
     } else {
-        throw "Unknown file type: ${_archive_file}"
+        Write-Host -ForegroundColor Yellow "Unknown file type: ${_archive_file}"
+        return @{}
     }
 
-    $ret = @()
+    $ret = @{}
     foreach ($modfile in $json.Keys) {
         $_archiveInternalPath = ($modfile.ToString() -split "[/\\]")[0]
 
@@ -204,7 +205,9 @@ foreach ($mod_dir in (Get-ChildItem -Recurse -Directory $DOWNLOAD_PATH | Select-
         $full_path = Join-Path -Path $DOWNLOAD_PATH -ChildPath $relative_path
         Get-Mod-Info-From-Archive($full_path) | ForEach-Object {
             $archive_modinfo = $_
-            $active_mods[$archive_modinfo.id] = $archive_modinfo
+            if ($archive_modinfo.ContainsKey('id')) {
+                $active_mods[$archive_modinfo.id] = $archive_modinfo
+            }
         }
     }
 }
