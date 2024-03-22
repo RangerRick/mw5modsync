@@ -2,7 +2,7 @@
 $MW5_DIR="C:\Program Files\Epic Games\MW5Mercs"
 
 # don't uncomment this, Ben just uses this for testing on his Mac
-#$MW5_DIR="/tmp/MW5Mercs"
+#$MW5_DIR="/tmp/mercs"
 
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
@@ -24,8 +24,6 @@ if (-not (Test-Path -Path $DOWNLOAD_PATH)) {
     New-Item -Path $DOWNLOAD_PATH -ItemType Directory
 }
 
-
-$_server_root="https://mw5.raccoonfink.com"
 
 function is_7zip {
     param($_file)
@@ -195,7 +193,7 @@ $active_mods = @{}
 Write-Host "### DOWNLOADING NEW FILES ###" -ForegroundColor Cyan
 
 $_local_download_path = Get-Cygpath "${DOWNLOAD_PATH}"
-rsync -avr --partial --progress --no-perms --delete --exclude='*.filepart' --exclude=Depricated --exclude=Deprecated --exclude="Virtual Reality" "ln1.raccoonfink.com::mw5/" "${_local_download_path}/"
+rsync -avr --partial --progress --no-perms --delete --exclude='*.filepart' --include='Required/***' --include='Optional/***' --exclude='*' "ln1.raccoonfink.com::mw5/" "${_local_download_path}/"
 
 foreach ($mod_dir in (Get-ChildItem -Recurse -Directory $DOWNLOAD_PATH | Select-Object -ExpandProperty Name)) {
     $local_filelist = Get-Local-Filelist $mod_dir
