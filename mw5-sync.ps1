@@ -309,4 +309,38 @@ $existing_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-
 }
 
 Write-Host ""
+Write-Host "### Updating modlist.json ###" -ForegroundColor Cyan
+
+$modlist_filename = Join-Path -Path $UNPACK_DIR -ChildPath "modlist.json"
+$modlist = @{ modStatus = @{} };
+if (Test-Path -Path $modlist_filename) {
+    $modlist = Get-Json-From-File $modlist_filename
+} else {
+    Write-Host -ForegroundColor Yellow "! ${modlist_filename} does not already exist... creating"
+}
+
+$active_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-Object {
+    $mod_info = $_.Value
+
+    if ($mod_info.file -imatch "\boptional\b") {
+        Write-Host -ForegroundColor DarkGray "* Skipping optional mod $($mod_info.displayName)"
+    } else {
+        $modlist.modStatus | Add-Member -Force -NotePropertyName $mod_info.internalPath -NotePropertyValue @{ bEnabled = $true }
+        Write-Host -NoNewline "* Enabling required mod "
+        Write-Mod-Name $mod_info
+        Write-Host ""
+    }
+}
+
+if (Test-Path -Path "${modlist_filename}.bak") {
+    Remove-Item "${modlist_filename}.bak"
+}
+
+if (Test-Path -Path $modlist_filename) {
+    Rename-Item -Path $modlist_filename -NewName "${modlist_filename}.bak"
+}
+
+$modlist | ConvertTo-Json | Out-File -FilePath $modlist_filename
+
+Write-Host ""
 pause
