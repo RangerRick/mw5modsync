@@ -62,11 +62,18 @@ function Get-Local-Filelist {
     return [array](Get-ChildItem -Path $localdir -File -Name)
 }
 
+function Get-Json-From-File {
+    param( $_filename )
+
+    $contents = Get-Content -Path $_filename -Raw
+    $json = ConvertFrom-Json -InputObject $contents
+    return $json
+}
+
 function Get-Mod-Info-From-File {
     param( $_file )
 
-    $contents = Get-Content -Path $_file.FullName -Raw
-    $json = ConvertFrom-Json -InputObject $contents
+    $json = Get-Json-From-File $_file.FullName
 
     # Write-Host "Full Name: $($_file.FullName)"
     $_relativeName = $_file.FullName.ToString()
