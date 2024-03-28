@@ -1,0 +1,114 @@
+{
+	"gameVersion": "1.1.351",
+	"modStatus":
+	{
+		"ArmorRepairTimes":
+		{
+			"bEnabled": true
+		},
+		"vonBiomes":
+		{
+			"bEnabled": true
+		},
+		"PilotOverhaul":
+		{
+			"bEnabled": true
+		},
+		"ModOptions":
+		{
+			"bEnabled": true
+		},
+		"Mechs_of_Beauty":
+		{
+			"bEnabled": true
+		},
+		"Coyotesmission":
+		{
+			"bEnabled": true
+		},
+		"CoopUnlocked":
+		{
+			"bEnabled": true
+		},
+		"YetAnotherMechlabMechs":
+		{
+			"bEnabled": true
+		},
+		"Lore-based Mech Variants - YAML Edition":
+		{
+			"bEnabled": true
+		},
+		"YetAnotherMechlab":
+		{
+			"bEnabled": true
+		},
+		"TTRulez_LanceMateOrderz":
+		{
+			"bEnabled": true
+		},
+		"TTRulez_AIMod2":
+		{
+			"bEnabled": true
+		},
+		"YetAnotherWeapon":
+		{
+			"bEnabled": true
+		},
+		"YetAnotherWeaponClan":
+		{
+			"bEnabled": true
+		},
+		"YetAnotherClanMech":
+		{
+			"bEnabled": true
+		},
+		"XenoPax_Optimize":
+		{
+			"bEnabled": true
+		},
+		"UnlockHiddenColorSchemes":
+		{
+			"bEnabled": true
+		},
+		"RemoveJumpShipAnimation":
+		{
+			"bEnabled": true
+		},
+		"MW5Compatibility":
+		{
+			"bEnabled": true
+		},
+		"MW2Betty_Ultimate":
+		{
+			"bEnabled": true
+		},
+		"MPUI_V2_0":
+		{
+			"bEnabled": true
+		},
+		"MechDelivery":
+		{
+			"bEnabled": true
+		},
+		"MaxTonnage":
+		{
+			"bEnabled": true
+		},
+		"ArmorGreenRasal":
+		{
+			"bEnabled": true
+		},
+		"advanced_zoom":
+		{
+			"bEnabled": true
+		},
+		"ClassicMechsYAMLLore":
+		{
+			"bEnabled": true
+		},
+		"ClassicMechIcons":
+		{
+			"bEnabled": true
+		}
+	}
+}
