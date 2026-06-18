@@ -1,8 +1,23 @@
+# Script parameter to allow passing the MW5Mercs folder as a command-line argument
+# Falls back to hardcoded default when no argument is provided
+param(
+    [Parameter(Mandatory=$false, HelpMessage="Path to the MW5Mercs folder")]
+    [string]$MW5MercsFolder
+)
+
 # SET THIS TO YOUR MECHWARRIOR 5 DIRECTORY!
-$MW5_DIR="C:\Program Files\Epic Games\MW5Mercs"
+# This is the default when no argument is passed
+$DEFAULT_MW5_DIR="C:\Program Files\Epic Games\MW5Mercs"
 
 # don't uncomment this, Ben just uses this for testing on his Mac
-#$MW5_DIR="/tmp/mercs"
+#$DEFAULT_MW5_DIR="/tmp/mercs"
+
+# Use the provided folder if given, otherwise use the default
+if ([string]::IsNullOrWhiteSpace($MW5MercsFolder)) {
+    $MW5_DIR=$DEFAULT_MW5_DIR
+} else {
+    $MW5_DIR=$MW5MercsFolder
+}
 
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
