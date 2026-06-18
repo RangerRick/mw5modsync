@@ -1,22 +1,17 @@
-# Script parameter to allow passing the MW5Mercs folder as a command-line argument
-# Falls back to hardcoded default when no argument is provided
 param(
     [Parameter(Mandatory=$false, HelpMessage="Path to the MW5Mercs folder")]
     [string]$MW5MercsFolder
 )
 
-# SET THIS TO YOUR MECHWARRIOR 5 DIRECTORY!
-# This is the default when no argument is passed
 $DEFAULT_MW5_DIR="C:\Program Files\Epic Games\MW5Mercs"
-
-# don't uncomment this, Ben just uses this for testing on his Mac
 #$DEFAULT_MW5_DIR="/tmp/mercs"
 
-# Use the provided folder if given, otherwise use the default
-if ([string]::IsNullOrWhiteSpace($MW5MercsFolder)) {
-    $MW5_DIR=$DEFAULT_MW5_DIR
-} else {
-    $MW5_DIR=$MW5MercsFolder
+# Resolve MW5 directory from parameter or default
+$MW5_DIR = [string]::IsNullOrWhiteSpace($MW5MercsFolder) ? $DEFAULT_MW5_DIR : $MW5MercsFolder
+
+# Validate that MW5_DIR exists and is a directory before proceeding
+if (-not (Test-Path -Path $MW5_DIR -PathType Container)) {
+    throw "MW5 directory '${MW5_DIR}' does not exist or is not a directory. Please verify the path or pass -MW5MercsFolder parameter."
 }
 
 $ErrorActionPreference = 'Stop'
@@ -31,8 +26,8 @@ $env:PATH = '{0}{1}{2}' -f $env:PATH,[IO.Path]::PathSeparator,'.'
 $UNPACK_DIR = Join-Path -Path (Join-Path -Path $MW5_DIR -ChildPath "MW5Mercs") -ChildPath "mods"
 $DOWNLOAD_PATH = Join-Path -Path (Join-Path -Path $MW5_DIR -ChildPath "MW5Mercs") -ChildPath "mw5modsync-cache"
 
-if (-not (Test-Path -Path $UNPACK_DIR)) {
-    throw "mod directory ${UNPACK_DIR} does not exist"
+if (-not (Test-Path -Path $UNPACK_DIR -PathType Container)) {
+    throw "Mod directory does not exist at ${UNPACK_DIR}. Ensure MW5 directory is set to a valid MechWarrior 5 installation."
 }
 
 if (-not (Test-Path -Path $DOWNLOAD_PATH)) {
