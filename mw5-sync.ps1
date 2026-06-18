@@ -3,6 +3,8 @@ param(
     [string]$MW5MercsFolder
 )
 
+. (Join-Path -Path $PSScriptRoot -ChildPath 'archive-type.ps1')
+
 $DEFAULT_MW5_DIR="C:\Program Files\Epic Games\MW5Mercs"
 #$DEFAULT_MW5_DIR="/tmp/mercs"
 
@@ -47,21 +49,6 @@ function Remove-Mod-Directory {
     } else {
         throw "refusing to delete: internalPath '$internalPath' is empty, contains path separators, or starts with a dot"
     }
-}
-
-function is_7zip {
-    param($_file)
-    return $_file.EndsWith(".7z", "CurrentCultureIgnoreCase");
-}
-
-function is_rar {
-    param($_file)
-    return $_file.EndsWith(".rar", "CurrentCultureIgnoreCase");
-}
-
-function is_zip {
-    param($_file)
-    return $_file.EndsWith(".zip", "CurrentCultureIgnoreCase");
 }
 
 function Get-Cygpath {
@@ -168,7 +155,7 @@ function Get-Mod-Info-From-Archive {
         $json = Get-Archive-Contents "${_archive_file}" `
             { unrar lb "${_archive_file}" } `
             { param($modfile); unrar p "${_archive_file}" $modfile }
-    } elseif (is_7zip($_archive_file) -or is_zip($_archive_file)) {
+    } elseif (is_7z_compatible($_archive_file)) {
         $cyg_archive_file = Get-Cygpath "${_archive_file}"
         $json = Get-Archive-Contents "${_archive_file}" `
             { 7z l -slt "${cyg_archive_file}" } `
