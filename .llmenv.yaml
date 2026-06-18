@@ -1,0 +1,5 @@
+name: "Mechwarrior 5 Mod Sync"
+description: "A tool for automatically syncing and enabling mods for multiplayer MW5"
+id: "mw5modsync"
+
+tags: ["lang-powershell"]
