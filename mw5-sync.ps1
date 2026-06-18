@@ -4,6 +4,7 @@ param(
 )
 
 . (Join-Path -Path $PSScriptRoot -ChildPath 'archive-type.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'mod-path.ps1')
 
 $DEFAULT_MW5_DIR="C:\Program Files\Epic Games\MW5Mercs"
 #$DEFAULT_MW5_DIR="/tmp/mercs"
@@ -93,11 +94,7 @@ function Get-Mod-Info-From-File {
 
     $json = Get-Json-From-File $_file.FullName
 
-    # Write-Host "Full Name: $($_file.FullName)"
-    $_relativeName = $_file.FullName.ToString()
-    $_relativeName = $_relativeName.replace(($UNPACK_DIR + [IO.Path]::DirectorySeparatorChar), '')
-
-    $_internalPath = $_relativeName.Split([IO.Path]::DirectorySeparatorChar)[0]
+    $_internalPath = Get-Mod-Internal-Path $UNPACK_DIR $_file.FullName.ToString()
 
     return @{
         id = $_internalPath.ToLower()
