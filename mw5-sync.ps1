@@ -265,17 +265,16 @@ $active_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-Ob
 
             Write-Host "done"
         }
-        $archive_file_path = $active.file
-        $archive_file_name = Split-Path $archive_file_path -Leaf
+        $archive_file_name = Split-Path $active.file -Leaf
         Write-Host -NoNewline "  * Unpacking archive: "
         Write-Host -NoNewline -ForegroundColor Blue $archive_file_name
         Write-Host -NoNewline "... "
-        if ($unpacked_mods.ContainsKey($archive_file_path)) {
+        if ($unpacked_mods.ContainsKey($active.file)) {
             Write-Host "already unpacked"
         } else {
             Expand-Mod $active
             Write-Host "done"
-            $unpacked_mods[$archive_file_path] = $true
+            $unpacked_mods[$active.file] = $true
         }
     }
 }
