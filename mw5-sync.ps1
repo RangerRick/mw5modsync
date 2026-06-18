@@ -105,15 +105,7 @@ function Get-Mod-Info-From-Archive {
 
     $json = @{}
 
-    if (is_zip($_archive_file)) {
-        $_cyg_zip_file = Get-Cygpath $_archive_file
-        $modfiles = unzip -Z1 "${_cyg_zip_file}" | Out-String | Get-Mod-Info-Files-From-List
-        $modfiles | ForEach-Object {
-            $modfile = $_
-            $contents = unzip -p "${_cyg_zip_file}" $modfile | Out-String
-            $json[$modfile] = ConvertFrom-Json -InputObject $contents
-        }
-    } elseif (is_rar($_archive_file)) {
+    if (is_rar($_archive_file)) {
         $modfiles = unrar lb "${_archive_file}" | Out-String | Get-Mod-Info-Files-From-List
         if ($LASTEXITCODE -gt 0) {
             throw "failed to determine mod.json path inside archive ${_archive_file}"
@@ -126,7 +118,7 @@ function Get-Mod-Info-From-Archive {
             }
             $json[$modfile] = ConvertFrom-Json -InputObject $contents
         }
-    } elseif (is_7zip($_archive_file)) {
+    } elseif (is_7zip($_archive_file) -or is_zip($_archive_file)) {
         $cyg_archive_file = Get-Cygpath "${_archive_file}"
         $modfiles = 7z l -slt "${cyg_archive_file}" | Out-String | Get-Mod-Info-Files-From-List
         if ($LASTEXITCODE -gt 0) {
