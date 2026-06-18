@@ -65,7 +65,7 @@ function Get-Local-Filelist {
 function Get-Json-From-File {
     param( $_filename )
 
-    $contents = Get-Content -Path $_filename -Raw
+    $contents = Get-Content -Path $_filename -Raw -Encoding UTF8
     $json = ConvertFrom-Json -InputObject $contents
     return $json
 }
@@ -134,7 +134,7 @@ function Get-Mod-Info-From-Archive {
         }
     } else {
         Write-Host -ForegroundColor Yellow "Unknown file type: ${_archive_file}"
-        return @{}
+        return @()
     }
 
     $ret = @()
@@ -315,7 +315,7 @@ if (Test-Path -Path $modlist_filename) {
 $active_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-Object {
     $mod_info = $_.Value
 
-    if ($mod_info.file -match "[\\/]Optional[\\/]") {
+    if ($mod_info.file -imatch "[\\/]Optional[\\/]") {
         Write-Host -ForegroundColor DarkGray "* Skipping optional mod $($mod_info.displayName)"
     } else {
         $modlist.modStatus | Add-Member -Force -NotePropertyName $mod_info.internalPath -NotePropertyValue @{ bEnabled = $true }
