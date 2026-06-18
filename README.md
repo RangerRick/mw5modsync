@@ -12,13 +12,19 @@ Installation
 
 1. click `Code` on this GitHub page, and select `Download ZIP`
 2. unpack the downloaded ZIP file (this tool will not work if you just run things inside the ZIP file)
-3. edit the `mw5-sync.ps1` file in notepad and change the `$MW5_DIR` at the top of the file to your MW5Mercs directory
-4. that's it!
+3. that's it! (optional: see "Running" for custom mod folder paths)
 
 Running
 -------
 
-Click on the `RUNME` script.
-It should automatically ask for administrative privileges.
+Click on the `RUNME` script to run with the default mod folder (`C:\Program Files\Epic Games\MW5Mercs`).
+
+To use a custom mod folder path, pass the `-MW5MercsFolder` parameter:
+
+```powershell
+.\mw5-sync.ps1 -MW5MercsFolder "D:\CustomPath\MW5Mercs"
+```
+
+The script automatically requests administrative privileges.
 You do _not_ want to know how it asks for administrative privileges.
 Seriously.
