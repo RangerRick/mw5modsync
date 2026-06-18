@@ -25,6 +25,20 @@ if (-not (Test-Path -Path $DOWNLOAD_PATH)) {
 }
 
 
+# Validates that internalPath is a safe single-directory name (non-empty, no path separators,
+# no leading dot) before deleting it under $UNPACK_DIR.
+# NOTE: Windows reserved device names (CON, NUL, LPT1, etc.) and names with trailing spaces or
+# dots are not rejected here — they are illegal in mod.json but are not guarded against. This is
+# a known limitation; the regex guards against traversal, not every illegal Windows filename.
+function Remove-Mod-Directory {
+    param([string]$internalPath)
+    if ($internalPath -match '^[^./\\]+$') {
+        Remove-Item (Join-Path -Path $UNPACK_DIR -ChildPath $internalPath) -Recurse -Force
+    } else {
+        throw "refusing to delete: internalPath '$internalPath' is empty, contains path separators, or starts with a dot"
+    }
+}
+
 function is_7zip {
     param($_file)
     return $_file.EndsWith(".7z", "CurrentCultureIgnoreCase");
@@ -66,7 +80,11 @@ function Get-Json-From-File {
     param( $_filename )
 
     $contents = Get-Content -Path $_filename -Raw -Encoding UTF8
-    $json = ConvertFrom-Json -InputObject $contents
+    try {
+        $json = ConvertFrom-Json -InputObject $contents
+    } catch {
+        throw "failed to parse JSON from ${_filename}: $_"
+    }
     return $json
 }
 
@@ -100,38 +118,41 @@ function Get-Mod-Info-Files-From-List {
     return $_archive_output -split '\r?\n' | Where-Object { $_ -match "^[^\\/]+[\\/]mod\.json" } | ForEach-Object { $_.replace("Path = ", "") };
 }
 
+function Get-Archive-Contents {
+    param(
+        [string]$archive_file,
+        [scriptblock]$list_cmd,
+        [scriptblock]$extract_cmd
+    )
+
+    $modfiles = & $list_cmd | Out-String | Get-Mod-Info-Files-From-List
+    if ($LASTEXITCODE -gt 0) {
+        throw "failed to determine mod.json path inside archive ${archive_file}"
+    }
+    $json = @{}
+    $modfiles | ForEach-Object {
+        $modfile = $_
+        $contents = & $extract_cmd $modfile | Out-String
+        if ($LASTEXITCODE -gt 0) {
+            throw "failed to get contents of mod.json inside archive ${archive_file}"
+        }
+        $json[$modfile] = ConvertFrom-Json -InputObject $contents
+    }
+    return $json
+}
+
 function Get-Mod-Info-From-Archive {
     param( $_archive_file )
 
-    $json = @{}
-
     if (is_rar($_archive_file)) {
-        $modfiles = unrar lb "${_archive_file}" | Out-String | Get-Mod-Info-Files-From-List
-        if ($LASTEXITCODE -gt 0) {
-            throw "failed to determine mod.json path inside archive ${_archive_file}"
-        }
-        $modfiles | ForEach-Object {
-            $modfile = $_
-            $contents = unrar p "${_archive_file}" $modfile | Out-String
-            if ($LASTEXITCODE -gt 0) {
-                throw "failed to get contents of mod.json inside archive ${_archive_file}"
-            }
-            $json[$modfile] = ConvertFrom-Json -InputObject $contents
-        }
+        $json = Get-Archive-Contents "${_archive_file}" `
+            { unrar lb "${_archive_file}" } `
+            { param($modfile); unrar p "${_archive_file}" $modfile }
     } elseif (is_7zip($_archive_file) -or is_zip($_archive_file)) {
         $cyg_archive_file = Get-Cygpath "${_archive_file}"
-        $modfiles = 7z l -slt "${cyg_archive_file}" | Out-String | Get-Mod-Info-Files-From-List
-        if ($LASTEXITCODE -gt 0) {
-            throw "failed to determine mod.json path inside archive ${_archive_file}"
-        }
-        $modfiles | ForEach-Object {
-            $modfile = $_
-            $contents = 7z e -so "${cyg_archive_file}" "${modfile}" | Out-String
-            if ($LASTEXITCODE -gt 0) {
-                throw "failed to get contents of mod.json inside archive ${_archive_file}"
-            }
-            $json[$modfile] = ConvertFrom-Json -InputObject $contents
-        }
+        $json = Get-Archive-Contents "${_archive_file}" `
+            { 7z l -slt "${cyg_archive_file}" } `
+            { param($modfile); 7z e -so "${cyg_archive_file}" "${modfile}" }
     } else {
         Write-Host -ForegroundColor Yellow "Unknown file type: ${_archive_file}"
         return @()
@@ -193,6 +214,9 @@ Write-Host "### DOWNLOADING NEW FILES ###" -ForegroundColor Cyan
 
 $_local_download_path = Get-Cygpath "${DOWNLOAD_PATH}"
 rsync -avr --partial --progress --no-perms --delete --exclude='*.filepart' --include='Required/***' --include='Optional/***' --exclude='*' "ln1.raccoonfink.com::mw5/" "${_local_download_path}/"
+if ($LASTEXITCODE -gt 0) {
+    throw "rsync failed with exit code $LASTEXITCODE"
+}
 
 foreach ($mod_dir in (Get-ChildItem -Directory $DOWNLOAD_PATH | Select-Object -ExpandProperty Name)) {
     $local_filelist = Get-Local-Filelist $mod_dir
@@ -261,7 +285,7 @@ $active_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-Ob
             Write-Host -NoNewline -ForegroundColor Magenta $existing.internalPath
             Write-Host -NoNewline " mod directory... "
 
-            Remove-Item (Join-Path -Path $UNPACK_DIR -ChildPath $existing.internalPath) -Recurse -Force
+            Remove-Mod-Directory $existing.internalPath
 
             Write-Host "done"
         }
@@ -295,7 +319,7 @@ $existing_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-
         Write-Host -NoNewline ") mod from the "
         Write-Host -NoNewline -ForegroundColor Magenta $existing.internalPath
         Write-Host " directory..."
-        Remove-Item (Join-Path -Path $UNPACK_DIR -ChildPath $existing.internalPath) -Recurse -Force
+        Remove-Mod-Directory $existing.internalPath
         Write-Host "done"
     }
 }
@@ -309,6 +333,9 @@ if (Test-Path -Path $modlist_filename) {
     $modlist = Get-Json-From-File $modlist_filename
 } else {
     Write-Host -ForegroundColor Yellow "! ${modlist_filename} does not already exist... creating"
+}
+if (-not $modlist.modStatus) {
+    $modlist.modStatus = @{}
 }
 
 $active_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-Object {
