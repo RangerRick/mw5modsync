@@ -61,6 +61,9 @@ function Get-Cygpath {
         return $_path
     }
     $_cygwin_path = cygpath --unix "${_path}" | Out-String
+    if ($LASTEXITCODE -gt 0) {
+        throw "cygpath failed for '${_path}' (exit code $LASTEXITCODE)"
+    }
     $_cygwin_path = $_cygwin_path.replace("`r`n", "").replace("`n", "")
     return $_cygwin_path
 }
@@ -129,6 +132,9 @@ function Get-Archive-Contents {
     if ($LASTEXITCODE -gt 0) {
         throw "failed to determine mod.json path inside archive ${archive_file}"
     }
+    if (-not $modfiles) {
+        throw "no mod.json found in archive ${archive_file}"
+    }
     $json = @{}
     $modfiles | ForEach-Object {
         $modfile = $_
@@ -136,7 +142,11 @@ function Get-Archive-Contents {
         if ($LASTEXITCODE -gt 0) {
             throw "failed to get contents of mod.json inside archive ${archive_file}"
         }
-        $json[$modfile] = ConvertFrom-Json -InputObject $contents
+        try {
+            $json[$modfile] = ConvertFrom-Json -InputObject $contents
+        } catch {
+            throw "failed to parse mod.json at '${modfile}' inside archive ${archive_file}: $_"
+        }
     }
     return $json
 }
@@ -344,6 +354,9 @@ $active_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-Ob
     if ($mod_info.file -imatch "[\\/]Optional[\\/]") {
         Write-Host -ForegroundColor DarkGray "* Skipping optional mod $($mod_info.displayName)"
     } else {
+        if ($mod_info.internalPath -notmatch '^[^./\\]+$') {
+            throw "invalid internalPath in mod: '$($mod_info.internalPath)'"
+        }
         $modlist.modStatus | Add-Member -Force -NotePropertyName $mod_info.internalPath -NotePropertyValue @{ bEnabled = $true }
         Write-Host -NoNewline "* Enabling required mod "
         Write-Mod-Name $mod_info
