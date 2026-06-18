@@ -21,7 +21,7 @@ if (-not (Test-Path -Path $UNPACK_DIR)) {
 }
 
 if (-not (Test-Path -Path $DOWNLOAD_PATH)) {
-    New-Item -Path $DOWNLOAD_PATH -ItemType Directory
+    New-Item -Path $DOWNLOAD_PATH -ItemType Directory | Out-Null
 }
 
 
@@ -65,7 +65,7 @@ function Get-Local-Filelist {
 function Get-Json-From-File {
     param( $_filename )
 
-    $contents = Get-Content -Path $_filename -Raw
+    $contents = Get-Content -Path $_filename -Raw -Encoding UTF8
     $json = ConvertFrom-Json -InputObject $contents
     return $json
 }
@@ -97,7 +97,7 @@ function Get-Mod-Info-Files-From-List {
         $_archive_output
     )
 
-    return $_archive_output -split '\r?\n' | Where-Object { $_ -match "^[^\\/]+[\\/]mod.json" } | ForEach-Object { $_.replace("Path = ", "") };
+    return $_archive_output -split '\r?\n' | Where-Object { $_ -match "^[^\\/]+[\\/]mod\.json" } | ForEach-Object { $_.replace("Path = ", "") };
 }
 
 function Get-Mod-Info-From-Archive {
@@ -134,10 +134,10 @@ function Get-Mod-Info-From-Archive {
         }
     } else {
         Write-Host -ForegroundColor Yellow "Unknown file type: ${_archive_file}"
-        return @{}
+        return @()
     }
 
-    $ret = @{}
+    $ret = @()
     foreach ($modfile in $json.Keys) {
         $_archiveInternalPath = ($modfile.ToString() -split "[/\\]")[0]
 
@@ -194,7 +194,7 @@ Write-Host "### DOWNLOADING NEW FILES ###" -ForegroundColor Cyan
 $_local_download_path = Get-Cygpath "${DOWNLOAD_PATH}"
 rsync -avr --partial --progress --no-perms --delete --exclude='*.filepart' --include='Required/***' --include='Optional/***' --exclude='*' "ln1.raccoonfink.com::mw5/" "${_local_download_path}/"
 
-foreach ($mod_dir in (Get-ChildItem -Recurse -Directory $DOWNLOAD_PATH | Select-Object -ExpandProperty Name)) {
+foreach ($mod_dir in (Get-ChildItem -Directory $DOWNLOAD_PATH | Select-Object -ExpandProperty Name)) {
     $local_filelist = Get-Local-Filelist $mod_dir
 
     foreach ($localfile in $local_filelist) {
@@ -265,16 +265,16 @@ $active_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-Ob
 
             Write-Host "done"
         }
-        $archive_file_name = Split-Path $active.file -Leaf -Resolve
+        $archive_file_name = Split-Path $active.file -Leaf
         Write-Host -NoNewline "  * Unpacking archive: "
         Write-Host -NoNewline -ForegroundColor Blue $archive_file_name
         Write-Host -NoNewline "... "
-        if ($unpacked_mods.ContainsKey($archive_file_name)) {
+        if ($unpacked_mods.ContainsKey($active.file)) {
             Write-Host "already unpacked"
         } else {
             Expand-Mod $active
             Write-Host "done"
-            $unpacked_mods[$archive_file_name] = $true
+            $unpacked_mods[$active.file] = $true
         }
     }
 }
@@ -314,7 +314,7 @@ if (Test-Path -Path $modlist_filename) {
 $active_mods.GetEnumerator() | Sort-Object { $_.Value.displayName } | ForEach-Object {
     $mod_info = $_.Value
 
-    if ($mod_info.file -imatch "\boptional\b") {
+    if ($mod_info.file -imatch "[\\/]Optional[\\/]") {
         Write-Host -ForegroundColor DarkGray "* Skipping optional mod $($mod_info.displayName)"
     } else {
         $modlist.modStatus | Add-Member -Force -NotePropertyName $mod_info.internalPath -NotePropertyValue @{ bEnabled = $true }
@@ -332,7 +332,7 @@ if (Test-Path -Path $modlist_filename) {
     Rename-Item -Path $modlist_filename -NewName "${modlist_filename}.bak"
 }
 
-$modlist | ConvertTo-Json | Out-File -FilePath $modlist_filename
+$modlist | ConvertTo-Json -Depth 10 | Out-File -FilePath $modlist_filename -Encoding utf8
 
 Write-Host ""
 pause
