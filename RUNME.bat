@@ -45,4 +45,4 @@ exit /B
 IF '%1'=='ELEV' ( shift /1 )
 cd /d %~dp0
 
-%SystemRoot%\system32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy RemoteSigned .\mw5-sync.ps1
+%SystemRoot%\system32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass .\mw5-sync.ps1
